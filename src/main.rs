@@ -1,7 +1,7 @@
 use actix_web::{guard, web, web::Data, App, HttpResponse, HttpServer, Result, HttpRequest};
 use async_graphql::{http::GraphiQLSource, EmptyMutation, EmptySubscription, Schema};
 use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse, GraphQLSubscription};
-use Ubnfs::{QueryRoot, Mutation, MyObj, MyObject, UbnfsSchema, MyObjectSchema, MyObjSchema,PostgresDB};
+use Ubnfs::{QueryRoot, Mutation, MyObj, MyObject, UbnfsSchema, MyObjectSchema, MyObjSchema,PostgresDB,Query};
 
 
 async fn index(schema: web::Data<UbnfsSchema>, req: GraphQLRequest) -> GraphQLResponse {
@@ -30,7 +30,7 @@ async fn index_ws(
 async fn main() -> std::io::Result<()> {
     
     // console app
-    let schema = Schema::build(QueryRoot, Mutation, EmptySubscription)
+    let schema = Schema::build(Query::default(), Mutation, EmptySubscription)
         .data(PostgresDB::init().await)
         .finish();
         

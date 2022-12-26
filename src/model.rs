@@ -1,7 +1,7 @@
 use async_graphql::*;
 
+#[derive(Default)]
 pub struct QueryRoot;
-
 #[Object]
 impl QueryRoot {
     /// Returns the sum of a and b
@@ -55,7 +55,7 @@ impl Mutation {
 
 
 }
-
+#[derive(Default)]
 #[derive(SimpleObject)]
 pub struct MyObject {
     pub a: i32,
@@ -64,6 +64,7 @@ pub struct MyObject {
     pub c: i32,
 }
 
+#[derive(Default)]
 #[derive(SimpleObject)]
 #[graphql(complex)] // NOTE: If you want the `ComplexObject` macro to take effect, this `complex` attribute is required.
 pub struct MyObj {
