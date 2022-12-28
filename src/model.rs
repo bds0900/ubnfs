@@ -1,5 +1,7 @@
 use async_graphql::*;
 
+use user::User;
+use matched::Matched;
 #[derive(Default)]
 pub struct QueryRoot;
 #[Object]
@@ -24,7 +26,7 @@ impl QueryRoot {
         rep.get_likes(input.id).await
     }
 
-    async fn find_matches(&self, ctx:&Context<'_>)->FieldResult<Vec<Match>>{
+    async fn find_matches(&self, ctx:&Context<'_>)->FieldResult<Vec<Matched>>{
         let rep= &ctx.data_unchecked::<PostgresDB>();
         rep.get_matches().await
     }
@@ -36,7 +38,7 @@ pub struct Mutation;
 impl Mutation {
     async fn create_user(&self, ctx: &Context<'_>,input: CreateUser) -> FieldResult<User>{
         let rep = &ctx.data_unchecked::<PostgresDB>();
-        let new_user = User {
+        let new_user = user::User {
                 id: None,
                 name: input.name,
             };
@@ -48,7 +50,7 @@ impl Mutation {
         rep.like_request(input).await
     }
 
-    async fn accept_like(&self, ctx: &Context<'_>, input:CreateMatch) -> FieldResult<Match>{
+    async fn accept_like(&self, ctx: &Context<'_>, input:CreateMatch) -> FieldResult<Matched>{
         let rep=&ctx.data_unchecked::<PostgresDB>();
         rep.be_match(input.user1_id,input.user2_id).await
     }
@@ -82,6 +84,8 @@ impl MyObj {
 use sqlx::{postgres::PgPoolOptions, Error, Pool, Postgres, types::Uuid};
 
 use serde::{Deserialize, Serialize};
+
+use crate::{user, matched};
 pub struct PostgresDB {
     db: Pool<Postgres>,
 }
@@ -89,7 +93,7 @@ impl PostgresDB {
     pub async fn init() -> Self {
         let pool = PgPoolOptions::new()
             .max_connections(5)
-            .connect("postgres://doosan:Conestoga1@localhost/test")
+            .connect("postgres://postgres:Cc7594435!@localhost/test")
             .await;
         let pool = pool.unwrap();
         
@@ -121,8 +125,8 @@ impl PostgresDB {
             reciver:new_request.reciver
         })
     }
-    pub async fn be_match(&self,user1_id:i32,user2_id:i32) -> Result<Match>{
-        let result= sqlx::query_as::<_,Match>("insert into matchs (user1_id,user2_id) values ($1,$2) returning id;")
+    pub async fn be_match(&self,user1_id:i32,user2_id:i32) -> Result<Matched>{
+        let result= sqlx::query_as::<_,Matched>("insert into matchs (user1_id,user2_id) values ($1,$2) returning id;")
         .bind(user1_id)
         .bind(user2_id)
         .fetch_one(&self.db).await?;
@@ -147,8 +151,8 @@ impl PostgresDB {
         Ok(result)
     }
 
-    pub async fn get_matches(&self)->Result<Vec<Match>>{
-        let result = sqlx::query_as::<_,Match>("select * from matchs where;").fetch_all(&self.db).await?;
+    pub async fn get_matches(&self)->Result<Vec<Matched>>{
+        let result = sqlx::query_as::<_,Matched>("select * from matchs where;").fetch_all(&self.db).await?;
         Ok(result)
     }
 
@@ -158,29 +162,13 @@ impl PostgresDB {
 
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, SimpleObject,sqlx::FromRow,sqlx::Type)]
-pub struct User {
-    pub id: Option<i32>,
-    pub name: String,
-}
+
 #[derive(Debug, Clone, Serialize, Deserialize, SimpleObject,sqlx::FromRow)]
 pub struct Likes{
     pub id:Option<i32>,
     pub sender:i32,
     pub reciver:i32
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize, SimpleObject,sqlx::FromRow)]
-pub struct Match{
-    pub id:Option<i32>,
-    pub user1_id:i32,
-    pub user2_id:i32
-}
-
-
-
-
-
 #[derive(InputObject)]
 pub struct CreateUser {
     pub name: String,
