@@ -1,4 +1,7 @@
 use async_graphql::*;
+
+use user::User;
+use matched::Matched;
 #[derive(Default)]
 pub struct QueryRoot;
 #[Object]
@@ -8,12 +11,12 @@ impl QueryRoot {
         a + b
     }
 
-    async fn find_users(&self,ctx: &Context<'_>) -> FieldResult<Vec<user::User>> {
+    async fn find_users(&self,ctx: &Context<'_>) -> FieldResult<Vec<User>> {
         let rep = &ctx.data_unchecked::<PostgresDB>();
         rep.get_users().await
     }
 
-    async fn find_user(&self,ctx:&Context<'_>,input:FindById) -> FieldResult<user::User>{
+    async fn find_user(&self,ctx:&Context<'_>,input:FindById) -> FieldResult<User>{
         let rep = &ctx.data_unchecked::<PostgresDB>();
         rep.get_user(input.id).await
     }
@@ -23,7 +26,7 @@ impl QueryRoot {
         rep.get_likes(input.id).await
     }
 
-    async fn find_matches(&self, ctx:&Context<'_>)->FieldResult<Vec<Match>>{
+    async fn find_matches(&self, ctx:&Context<'_>)->FieldResult<Vec<Matched>>{
         let rep= &ctx.data_unchecked::<PostgresDB>();
         rep.get_matches().await
     }
@@ -33,7 +36,7 @@ pub struct Mutation;
 
 #[Object]
 impl Mutation {
-    async fn create_user(&self, ctx: &Context<'_>,input: CreateUser) -> FieldResult<user::User>{
+    async fn create_user(&self, ctx: &Context<'_>,input: CreateUser) -> FieldResult<User>{
         let rep = &ctx.data_unchecked::<PostgresDB>();
         let new_user = user::User {
                 id: None,
@@ -47,7 +50,7 @@ impl Mutation {
         rep.like_request(input).await
     }
 
-    async fn accept_like(&self, ctx: &Context<'_>, input:CreateMatch) -> FieldResult<Match>{
+    async fn accept_like(&self, ctx: &Context<'_>, input:CreateMatch) -> FieldResult<Matched>{
         let rep=&ctx.data_unchecked::<PostgresDB>();
         rep.be_match(input.user1_id,input.user2_id).await
     }
@@ -82,7 +85,7 @@ use sqlx::{postgres::PgPoolOptions, Error, Pool, Postgres, types::Uuid};
 
 use serde::{Deserialize, Serialize};
 
-use crate::user;
+use crate::{user, matched};
 pub struct PostgresDB {
     db: Pool<Postgres>,
 }
@@ -98,7 +101,7 @@ impl PostgresDB {
     }
 
     //create
-    pub async fn create_user(&self, new_user: user::User) -> Result<user::User>{
+    pub async fn create_user(&self, new_user: User) -> Result<User>{
         // let row: (i64,) = sqlx::query_as("SELECT $1")
         // .bind(150_i64)
         // .fetch_one(&pool).await;
@@ -106,7 +109,7 @@ impl PostgresDB {
 
         let id = result?;
 
-        Ok(user::User { id: Some(id.0), name: new_user.name })
+        Ok(User { id: Some(id.0), name: new_user.name })
     }
 
     pub async fn like_request(&self, new_request: CreateLike) ->Result<Likes>{
@@ -122,8 +125,8 @@ impl PostgresDB {
             reciver:new_request.reciver
         })
     }
-    pub async fn be_match(&self,user1_id:i32,user2_id:i32) -> Result<Match>{
-        let result= sqlx::query_as::<_,Match>("insert into matchs (user1_id,user2_id) values ($1,$2) returning id;")
+    pub async fn be_match(&self,user1_id:i32,user2_id:i32) -> Result<Matched>{
+        let result= sqlx::query_as::<_,Matched>("insert into matchs (user1_id,user2_id) values ($1,$2) returning id;")
         .bind(user1_id)
         .bind(user2_id)
         .fetch_one(&self.db).await?;
@@ -133,13 +136,13 @@ impl PostgresDB {
 
 
     //get
-    pub async fn get_users(&self) -> Result<Vec<user::User>> {
-        let result:Vec<user::User> = sqlx::query_as::<_,user::User>("select * from users;").fetch_all(&self.db).await?;
+    pub async fn get_users(&self) -> Result<Vec<User>> {
+        let result:Vec<User> = sqlx::query_as::<_,User>("select * from users;").fetch_all(&self.db).await?;
         Ok(result)
     }
 
-    pub async fn get_user(&self,id:i32) ->Result<user::User>{
-        let result =  sqlx::query_as::<_,user::User>("select * from users where id= $1;").bind(id).fetch_one(&self.db).await?;
+    pub async fn get_user(&self,id:i32) ->Result<User>{
+        let result =  sqlx::query_as::<_,User>("select * from users where id= $1;").bind(id).fetch_one(&self.db).await?;
         Ok(result)
     }
 
@@ -148,8 +151,8 @@ impl PostgresDB {
         Ok(result)
     }
 
-    pub async fn get_matches(&self)->Result<Vec<Match>>{
-        let result = sqlx::query_as::<_,Match>("select * from matchs where;").fetch_all(&self.db).await?;
+    pub async fn get_matches(&self)->Result<Vec<Matched>>{
+        let result = sqlx::query_as::<_,Matched>("select * from matchs where;").fetch_all(&self.db).await?;
         Ok(result)
     }
 
@@ -166,18 +169,6 @@ pub struct Likes{
     pub sender:i32,
     pub reciver:i32
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize, SimpleObject,sqlx::FromRow)]
-pub struct Match{
-    pub id:Option<i32>,
-    pub user1_id:i32,
-    pub user2_id:i32
-}
-
-
-
-
-
 #[derive(InputObject)]
 pub struct CreateUser {
     pub name: String,
