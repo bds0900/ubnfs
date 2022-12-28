@@ -1,6 +1,7 @@
 use async_graphql::{Schema, EmptyMutation, EmptySubscription, MergedObject};
 
 mod model;
+mod user;
 pub use model::{QueryRoot, Mutation, MyObj, MyObject,PostgresDB};
 
 #[derive(MergedObject, Default)]

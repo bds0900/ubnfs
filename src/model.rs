@@ -1,5 +1,4 @@
 use async_graphql::*;
-
 #[derive(Default)]
 pub struct QueryRoot;
 #[Object]
@@ -9,12 +8,12 @@ impl QueryRoot {
         a + b
     }
 
-    async fn find_users(&self,ctx: &Context<'_>) -> FieldResult<Vec<User>> {
+    async fn find_users(&self,ctx: &Context<'_>) -> FieldResult<Vec<user::User>> {
         let rep = &ctx.data_unchecked::<PostgresDB>();
         rep.get_users().await
     }
 
-    async fn find_user(&self,ctx:&Context<'_>,input:FindById) -> FieldResult<User>{
+    async fn find_user(&self,ctx:&Context<'_>,input:FindById) -> FieldResult<user::User>{
         let rep = &ctx.data_unchecked::<PostgresDB>();
         rep.get_user(input.id).await
     }
@@ -34,9 +33,9 @@ pub struct Mutation;
 
 #[Object]
 impl Mutation {
-    async fn create_user(&self, ctx: &Context<'_>,input: CreateUser) -> FieldResult<User>{
+    async fn create_user(&self, ctx: &Context<'_>,input: CreateUser) -> FieldResult<user::User>{
         let rep = &ctx.data_unchecked::<PostgresDB>();
-        let new_user = User {
+        let new_user = user::User {
                 id: None,
                 name: input.name,
             };
@@ -82,6 +81,8 @@ impl MyObj {
 use sqlx::{postgres::PgPoolOptions, Error, Pool, Postgres, types::Uuid};
 
 use serde::{Deserialize, Serialize};
+
+use crate::user;
 pub struct PostgresDB {
     db: Pool<Postgres>,
 }
@@ -89,7 +90,7 @@ impl PostgresDB {
     pub async fn init() -> Self {
         let pool = PgPoolOptions::new()
             .max_connections(5)
-            .connect("postgres://doosan:Conestoga1@localhost/test")
+            .connect("postgres://postgres:Cc7594435!@localhost/test")
             .await;
         let pool = pool.unwrap();
         
@@ -97,7 +98,7 @@ impl PostgresDB {
     }
 
     //create
-    pub async fn create_user(&self, new_user: User) -> Result<User>{
+    pub async fn create_user(&self, new_user: user::User) -> Result<user::User>{
         // let row: (i64,) = sqlx::query_as("SELECT $1")
         // .bind(150_i64)
         // .fetch_one(&pool).await;
@@ -105,7 +106,7 @@ impl PostgresDB {
 
         let id = result?;
 
-        Ok(User { id: Some(id.0), name: new_user.name })
+        Ok(user::User { id: Some(id.0), name: new_user.name })
     }
 
     pub async fn like_request(&self, new_request: CreateLike) ->Result<Likes>{
@@ -132,13 +133,13 @@ impl PostgresDB {
 
 
     //get
-    pub async fn get_users(&self) -> Result<Vec<User>> {
-        let result:Vec<User> = sqlx::query_as::<_,User>("select * from users;").fetch_all(&self.db).await?;
+    pub async fn get_users(&self) -> Result<Vec<user::User>> {
+        let result:Vec<user::User> = sqlx::query_as::<_,user::User>("select * from users;").fetch_all(&self.db).await?;
         Ok(result)
     }
 
-    pub async fn get_user(&self,id:i32) ->Result<User>{
-        let result =  sqlx::query_as::<_,User>("select * from users where id= $1;").bind(id).fetch_one(&self.db).await?;
+    pub async fn get_user(&self,id:i32) ->Result<user::User>{
+        let result =  sqlx::query_as::<_,user::User>("select * from users where id= $1;").bind(id).fetch_one(&self.db).await?;
         Ok(result)
     }
 
@@ -158,11 +159,7 @@ impl PostgresDB {
 
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, SimpleObject,sqlx::FromRow,sqlx::Type)]
-pub struct User {
-    pub id: Option<i32>,
-    pub name: String,
-}
+
 #[derive(Debug, Clone, Serialize, Deserialize, SimpleObject,sqlx::FromRow)]
 pub struct Likes{
     pub id:Option<i32>,
